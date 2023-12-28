@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+history="/tmp/hypr_trans"
+
+if [ "$1" == "init" ]; then
+        truncate -s 0 > $history
+        exit 0
+fi
+
+CLASS=$(hyprctl -j activewindow | jq -r ".class")
+WINDOW_ADDRESS=$(hyprctl -j activewindow | jq -r ".address")
+WINDOW_ALPHA=$(jq -r "select(.address == \"$WINDOW_ADDRESS\") | .alpha" $history)
+
+if [[  -z "$WINDOW_ALPHA" ]]; then
+        WINDOW_ALPHA=1
+else
+        echo "current alpha:$WINDOW_ALPHA"
+fi
+
+JSON_STRING=$( jq -n \
+                  --arg c "$CLASS" \
+                  --arg wad "$WINDOW_ADDRESS" \
+                  --arg wal "$WINDOW_ALPHA" \
+                  '{"class": $c, "address": $wad, "alpha": $wal}' )
+
+# if already exist in history
+if [[ -n $(jq -r "select(.address == \"$WINDOW_ADDRESS\")" $history) ]]; then
+        DEFAULT_ALPHA=1
+        jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$DEFAULT_ALPHA\"" $history|sponge $history
+else
+        echo "$JSON_STRING" >> "$history"
+fi
+
+if [ "$1" == "plus" ]; then
+        if (( $(echo "$WINDOW_ALPHA < 1" | bc -l) ));then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" + 0.1 | bc); fi
+else
+        if (( $(echo "$WINDOW_ALPHA > 0" | bc -l) ));then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" - 0.1 | bc); fi
+fi
+hyprctl setprop address:"$WINDOW_ADDRESS" alpha "$WINDOW_ALPHA"
+jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$WINDOW_ALPHA\"" $history|sponge $history
