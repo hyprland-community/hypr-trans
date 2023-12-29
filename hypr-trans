@@ -1,40 +1,67 @@
 #!/usr/bin/env bash
 
+script_name="$0"
+script_name="$(basename "$script_name")"
 history="/tmp/hypr_trans"
 
+print_usage() { #{{
+	echo "Usage: $script_name [plus|minus]"
+	echo ""
+	echo "  plus    Increase current Window ALPHA value"
+	echo "  minus   Decrease current Window ALPHA value"
+	echo ""
+	echo " \`$script_name init\` must be executed once before \`plus\` or \`minus\`."
+	echo ""
+} #}}
+
+if [ $# -eq 0 ]; then
+	print_usage
+	exit 0
+fi
+
 if [ "$1" == "init" ]; then
-        truncate -s 0 > $history
-        exit 0
+	truncate -s 0 $history
+	exit 0
+fi
+
+if [ ! -f $history ]; then
+	echo "You need to run \`$script_name init\` once first"
+	exit 1
 fi
 
 CLASS=$(hyprctl -j activewindow | jq -r ".class")
 WINDOW_ADDRESS=$(hyprctl -j activewindow | jq -r ".address")
 WINDOW_ALPHA=$(jq -r "select(.address == \"$WINDOW_ADDRESS\") | .alpha" $history)
 
-if [[  -z "$WINDOW_ALPHA" ]]; then
-        WINDOW_ALPHA=1
-else
-        echo "current alpha:$WINDOW_ALPHA"
+if [[ -z "$WINDOW_ALPHA" ]]; then
+	WINDOW_ALPHA=1
+# else
+# 	echo "current alpha:$WINDOW_ALPHA"
 fi
 
-JSON_STRING=$( jq -n \
-                  --arg c "$CLASS" \
-                  --arg wad "$WINDOW_ADDRESS" \
-                  --arg wal "$WINDOW_ALPHA" \
-                  '{"class": $c, "address": $wad, "alpha": $wal}' )
+JSON_STRING=$(jq -n \
+	--arg c "$CLASS" \
+	--arg wad "$WINDOW_ADDRESS" \
+	--arg wal "$WINDOW_ALPHA" \
+	'{"class": $c, "address": $wad, "alpha": $wal}')
 
 # if already exist in history
 if [[ -n $(jq -r "select(.address == \"$WINDOW_ADDRESS\")" $history) ]]; then
-        DEFAULT_ALPHA=1
-        jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$DEFAULT_ALPHA\"" $history|sponge $history
+	DEFAULT_ALPHA=1
+	jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$DEFAULT_ALPHA\"" $history | sponge $history
 else
-        echo "$JSON_STRING" >> "$history"
+	echo "$JSON_STRING" >>"$history"
 fi
 
 if [ "$1" == "plus" ]; then
-        if (( $(echo "$WINDOW_ALPHA < 1" | bc -l) ));then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" + 0.1 | bc); fi
+	if (($(echo "$WINDOW_ALPHA < 1" | bc -l))); then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" + 0.1 | bc); fi
+elif [ "$1" == "minus" ]; then
+	if (($(echo "$WINDOW_ALPHA > 0" | bc -l))); then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" - 0.1 | bc); fi
 else
-        if (( $(echo "$WINDOW_ALPHA > 0" | bc -l) ));then WINDOW_ALPHA=$(echo "$WINDOW_ALPHA" - 0.1 | bc); fi
+	echo "$1 argument does not exist !"
+	echo ""
+	print_usage
+	exit 1
 fi
 hyprctl setprop address:"$WINDOW_ADDRESS" alpha "$WINDOW_ALPHA"
-jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$WINDOW_ALPHA\"" $history|sponge $history
+jq -r "(. | select(.address == \"$WINDOW_ADDRESS\") | .alpha) |=\"$WINDOW_ALPHA\"" $history | sponge $history
