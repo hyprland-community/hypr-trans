@@ -1,6 +1,6 @@
 # hypr-trans
 
-[![ShellCheck](https://github.com/jlaunay/hypr-trans/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/jlaunay/hypr-trans/actions/workflows/shellcheck.yml)
+[![ShellCheck](https://github.com/hyprland-community/hypr-trans/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/hyprland-community/hypr-trans/actions/workflows/shellcheck.yml)
 
 hypr-trans is a tiny bash utility that sets alpha attribute of an Hyprland window.
 
